@@ -36,7 +36,7 @@ Puppet::Type.type(:firewall).provide :ip6tables, :parent => :iptables, :source =
     :proto => "-p",
     :reject => "--reject-with",
     :source => "-s",
-    :state => "-m state --state",
+    :state => "-m conntrack --ctstate",
     :sport => "-m multiport --sports",
     :table => "-t",
     :todest => "--to-destination",

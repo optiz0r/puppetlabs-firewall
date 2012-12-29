@@ -100,9 +100,6 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
       update
     end
     @property_hash.clear
-    
-    # Clear unmanaged chains in each run.
-    @@unmanaged_chains = nil
   end
 
   def self.instances
@@ -111,9 +108,6 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
     rules = []
     counter = 1
 
-    # Get unmanaged chains and cache the result.
-    @@unmanaged_chains ||= unmanaged_chains_from_catalog
-    
     # String#lines would be nice, but we need to support Ruby 1.8.5
     self.execute([command(:iptables_save)]).split("\n").each do |line|
       unless line =~ /^\#\s+|^\:\S+|^COMMIT|^FATAL/
@@ -121,10 +115,8 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
           table = line.sub(/\*/, "")
         else
           if hash = rule_to_hash(line, table, counter)
-            if !@@unmanaged_chains.include? hash[:chain]
-              rules << new(hash)
-              counter += 1
-            end
+            rules << new(hash)
+            counter += 1
           end
         end
       end
@@ -214,16 +206,6 @@ Puppet::Type.type(:firewall).provide :iptables, :parent => Puppet::Provider::Fir
     end
 
     hash
-  end
-  
-  # Get all chains that have 'managed' attribute equal to false.
-  def self.unmanaged_chains_from_catalog
-
-    # Get all chains from the current catalog.
-    chains = Puppet::Face[:catalog, :current].find(Puppet[:certname]).resources.select { |resource| resource.type =~ /Firewallchain/ }
-    
-    # From all declared chains that have attribute 'managed => false', find the names.
-    unmanaged_chains = chains.select {|chain| chain[:managed] == false }.collect { |chain| chain.to_hash[:name].split(':').first }      
   end
 
   def insert_args

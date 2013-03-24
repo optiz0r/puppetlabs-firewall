@@ -98,10 +98,39 @@ describe firewallchain do
         expect { klass.new({:name => 'testchain:filter:IPv4', :policy => policy }) }.to raise_error(Puppet::Error)
       end
       it "non-inbuilt chains can accept policies on protocol = ethernet (policy #{policy})" do
-        klass.new({:name => 'testchain:filter:ethernet', :policy => policy }).should be_instance_of(@provider)
+        klass.new({:name => 'testchain:filter:ethernet', :policy => policy })
       end
     end
 
   end
 
+  describe 'autorequire packages' do
+    it "provider iptables_chain should autorequire package iptables" do
+      resource[:provider].should == :iptables_chain
+      package = Puppet::Type.type(:package).new(:name => 'iptables')
+      catalog = Puppet::Resource::Catalog.new
+      catalog.add_resource resource
+      catalog.add_resource package
+      rel = resource.autorequire[0]
+      rel.source.ref.should == package.ref
+      rel.target.ref.should == resource.ref
+    end
+
+    it "provider iptables_chain should autorequire packages iptables and iptables-persistent" do
+      resource[:provider].should == :iptables_chain
+      packages = [
+        Puppet::Type.type(:package).new(:name => 'iptables'),
+        Puppet::Type.type(:package).new(:name => 'iptables-persistent')
+      ]
+      catalog = Puppet::Resource::Catalog.new
+      catalog.add_resource resource
+      packages.each do |package|
+        catalog.add_resource package
+      end
+      packages.zip(resource.autorequire) do |package, rel|
+        rel.source.ref.should == package.ref
+        rel.target.ref.should == resource.ref
+      end
+    end
+  end
 end
